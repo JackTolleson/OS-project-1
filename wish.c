@@ -7,7 +7,7 @@
 char* find_executable(char *, char **);
 
 int main() {
-    // char input = user input 
+    // char input = user input             The input variable should be a char array Ex:char *input[] ... which is parsed by spaces
   
     char *cmd;
     char *path;
@@ -25,7 +25,25 @@ int main() {
       } else {
           printf("Command not found\n");
       }
-    { 
+
+      if (strcmp(input[0], "exit") == 0) {
+    if (input[1] != NULL) {
+        fprintf(stderr, "exit: too many arguments\n");
+    } else {
+        //this will exit the wish program
+        exit(0);
+    }
+}
+else if (strcmp(input[0], "cd") == 0) {
+    if (input[1] == NULL || input[2] != NULL) {
+        fprintf(stderr, "cd: expected exactly one argument\n");
+        //below will change the directory and give an error if it could not do that
+    } else if (chdir(input[1]) != 0) {
+        perror("cd");
+    }
+}
+
+} 
   
     return 0;
 }
