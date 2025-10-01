@@ -74,17 +74,23 @@ void process_line(char *line) {
 	// runs into all commands are processed
     while (command_str != NULL) {
         // trims whitespace at start of command line inputs
-        while (*command_str == ' ' || *command_str == '\t'){ 
-			command_str++;
+		while (isspace(*command_str)) {
+		    command_str++;
 		}
+
+		// this checks for empty commands after trimming (indicates a syntax error)
+        if (*command_str == '\0') {
+            print_error();
+            return;
+        }
 
 		// splits commands into individual arguments
         argc = parse_line(command_str, args);
         // skips empty commands
 		if (argc == 0) {
-            command_str = strtok_r(NULL, "&", &saveptr);
-            continue;
-        }
+		    print_error();
+		    return;
+		}
 
         pid_t pid = fork();
         if (pid < 0) {
