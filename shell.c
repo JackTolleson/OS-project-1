@@ -6,6 +6,12 @@
 
 #define MAX_ARGS 64
 
+// Path directories (use as global variable for now, later managed by built-in `path` -----> JACK)
+char *path_dirs[] = {"/bin", NULL};
+
+// function declarations
+char* find_executable(char *, char **);
+
 // Print an error message
 void print_error() {
     char error_message[30] = "An error has occurred\n";
@@ -28,16 +34,23 @@ int parse_line(char *line, char **args) {
 void execute_command(char **args) {
     if (args[0] == NULL) return; // Empty command
 	//args[0] is the first pointer in the array that will point to a single command/arguments
-
+	
+	// see if command path exists 
+    char *resolved_path = find_executable(args[0], path_dirs);
+    if (resolved_path == NULL) {
+        print_error();
+        return;
+    }
+	
     pid_t pid = fork();
     if (pid < 0) {
         print_error(); // Fork failed
     } else if (pid == 0) {
         // Child process runs command
-	// execv(args[0], args) runs the program args[0] (e.g., "ls") with the arguments in args;
-	// args[0] is conventionally the program name itself, so argv[0] = "ls", argv[1] = "-l", etc.
-        // I had used the execvp instead of execv, just realized my mistake
-	if (execv(args[0], args) == -1) {
+		// execv(args[0], args) runs the program args[0] (e.g., "ls") with the arguments in args;
+		// args[0] is conventionally the program name itself, so argv[0] = "ls", argv[1] = "-l", etc.
+	        // I had used the execvp instead of execv, just realized my mistake
+		if (execv(args[0], args) == -1) {
             print_error();
         }
         exit(1); // Exit child if exec fails
@@ -45,6 +58,9 @@ void execute_command(char **args) {
         // Parent waits for child
         wait(NULL);
     }
+
+	// free space created by command path checking
+	free(resolved_path);
 }
 
 // Process one line of input
@@ -117,4 +133,31 @@ int main(int argc, char *argv[]) {
     }
 
     return 0;
+}
+
+char* find_executable(char *cmd, char **path_dirs) {
+	// run until path directory "string" (character) array is done
+    for (int i = 0; path_dirs[i] != NULL; i++) {
+		// gets length of full "string" ("+ 2" included for '/' + '\0')
+        int len = strlen(path_dirs[i]) + strlen(cmd) + 2; 
+        // allocate space for buffer creation
+		char *full_path = malloc(len);
+        // if buffer is empty
+		if (!full_path){ 
+			return NULL;
+		}
+		
+		// writes text into a buffer (format: snprintf(buffer_variable, size of buffer, format of text, first string, second string) )
+        snprintf(full_path, len, "%s/%s", path_dirs[i], cmd);
+
+		// check if it's executable
+        if (access(full_path, X_OK) == 0) {
+            return full_path;
+        }
+
+		 // if not executable, free up the allocated space
+        free(full_path);
+    }
+	// if command path is not found
+    return NULL;
 }
