@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <ctype.h>
 
 #define MAX_ARGS 64
 
@@ -32,7 +33,9 @@ int parse_line(char *line, char **args) {
 
 // Execute a command
 void execute_command(char **args) {
-    if (args[0] == NULL) return; // Empty command
+    if (args[0] == NULL) {
+		return; // Empty command
+	}
 	//args[0] is the first pointer in the array that will point to a single command/arguments
 	
 	// see if command path exists 
@@ -42,23 +45,12 @@ void execute_command(char **args) {
         return;
     }
 	
-    pid_t pid = fork();
-    if (pid < 0) {
-        print_error(); // Fork failed
-    } else if (pid == 0) {
-        // Child process runs command
-		// execv(args[0], args) runs the program args[0] (e.g., "ls") with the arguments in args;
-		// args[0] is conventionally the program name itself, so argv[0] = "ls", argv[1] = "-l", etc.
-	        // I had used the execvp instead of execv, just realized my mistake
-		if (execv(resolved_path, args) == -1) {
-		    print_error();
-		    exit(1);
-		}
-        exit(1); // Exit child if exec fails
-    } else {
-        // Parent waits for child
-        wait(NULL);
-    }
+	// execv(args[0], args) runs the program args[0] (e.g., "ls") with the arguments in args;
+	// args[0] is conventionally the program name itself, so argv[0] = "ls", argv[1] = "-l", etc.
+		// I had used the execvp instead of execv, just realized my mistake
+	if (execv(resolved_path, args) == -1) {
+		print_error();
+	}
 
 	// free space created by command path checking
 	free(resolved_path);
@@ -66,9 +58,66 @@ void execute_command(char **args) {
 
 // Process one line of input
 void process_line(char *line) {
-    char *args[MAX_ARGS]; // an array of pointers to C strings, each string is a command or argument
-    parse_line(line, args);
-    execute_command(args);
+	char *args[MAX_ARGS]; // an array of pointers to C strings, each string is a command or argument
+    char *command_str; // holds each individual command string, separated by &
+    int argc; // the number of arguments per command
+
+	// stores state
+    char *saveptr;
+	// this splits the command line input into multiple commands, using the delimiter "&"
+    command_str = strtok_r(line, "&", &saveptr);
+	// stores child process IDs to make sure all commands are checked
+    pid_t pids[MAX_ARGS];
+	// child process counter
+    int pid_count = 0;
+
+	// runs into all commands are processed
+    while (command_str != NULL) {
+        // trims whitespace at start of command line inputs
+		while (isspace(*command_str)) {
+		    command_str++;
+		}
+
+		// trims whitespace at end of command line inputs
+        char *end = command_str + strlen(command_str) - 1;
+        while (end > command_str && isspace(*end)) {
+            *end = '\0';
+            end--;
+        }
+
+		// this checks for empty commands after trimming (indicates a syntax error)
+        if (*command_str == '\0') {
+            print_error();
+            return;
+        }
+
+		// splits commands into individual arguments
+        argc = parse_line(command_str, args);
+        // skips empty commands
+		if (argc == 0) {
+		    print_error();
+		    return;
+		}
+
+        pid_t pid = fork();
+        if (pid < 0) {
+            print_error(); // Fork failed
+        } else if (pid == 0) {
+            execute_command(args); // runs command in child process
+            exit(0);
+        } else {
+			 // store child pid for later
+            pids[pid_count++] = pid;
+        }
+
+		// move to next command in user input/text file
+        command_str = strtok_r(NULL, "&", &saveptr);
+    }
+
+    // this waits for all child processes to finish before returning back to shell
+    for (int i = 0; i < pid_count; i++) {
+        waitpid(pids[i], NULL, 0);
+    }
 }
 
 
