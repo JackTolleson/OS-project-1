@@ -1,0 +1,120 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/wait.h>
+
+#define MAX_ARGS 64
+
+// Print an error message
+void print_error() {
+    char error_message[30] = "An error has occurred\n";
+    write(STDERR_FILENO, error_message, strlen(error_message));
+}
+
+// Split input line into arguments
+int parse_line(char *line, char **args) {
+    int argc = 0;
+    char *token = strtok(line, " \t\n"); // Split by space/tab/newline
+    while (token != NULL && argc < MAX_ARGS - 1) {
+        args[argc++] = token;
+        token = strtok(NULL, " \t\n");
+    }
+    args[argc] = NULL; // Null terminate for execvp
+    return argc;
+}
+
+// Execute a command
+void execute_command(char **args) {
+    if (args[0] == NULL) return; // Empty command
+	//args[0] is the first pointer in the array that will point to a single command/arguments
+
+    pid_t pid = fork();
+    if (pid < 0) {
+        print_error(); // Fork failed
+    } else if (pid == 0) {
+        // Child process runs command
+	// execv(args[0], args) runs the program args[0] (e.g., "ls") with the arguments in args;
+	// args[0] is conventionally the program name itself, so argv[0] = "ls", argv[1] = "-l", etc.
+        // I had used the execvp instead of execv, just realized my mistake
+	if (execv(args[0], args) == -1) {
+            print_error();
+        }
+        exit(1); // Exit child if exec fails
+    } else {
+        // Parent waits for child
+        wait(NULL);
+    }
+}
+
+// Process one line of input
+void process_line(char *line) {
+    char *args[MAX_ARGS]; // an array of pointers to C strings, each string is a command or argument
+    parse_line(line, args);
+    execute_command(args);
+}
+
+
+// Interactive mode: read commands from user
+void interactive_mode() {
+    //line is a pointer to a character (a string in C), doesn't point to anywhere
+    char *line = NULL;
+    size_t len = 0;
+
+    while (1) {
+        printf("wish> ");               // Shell prompt
+        //getline uses address of line to update the pointer to point to the memory where the user string is stored and uses &len to know the current buffer size that the string is going to be stored in an if more is needed will allocate
+        if (getline(&line, &len, stdin) == -1) break; // EOF
+	
+	//direct to process the line
+        process_line(line);
+    }
+
+    free(line);
+}
+
+// Batch mode: read commands from a file
+//initializes a pointer called filename that holds characters of the actual file name
+void batch_mode(char *filename) {
+
+    //FILE is a c type representing an open file
+    //*file is a pointer to a FILE object
+    
+    FILE *file = fopen(filename, "r");
+    
+    //if not a file then error displays
+    if (!file) {
+        print_error();
+        exit(1);
+    }
+
+    
+    char *line = NULL;
+    size_t len = 0;
+    
+    //reads the contents of file
+    while (getline(&line, &len, file) != -1) {
+        process_line(line);
+    }
+
+    free(line);
+    fclose(file);
+}
+
+//argc stores the total number of command line arguments when the program is executed
+//argv (argument vector) is an array of pointers to an array of characters (that make up a string), each string represents a separate command line argument
+//char* indicates that each element in argv is a pointer to the beginning of a c style string 
+
+// Main function
+int main(int argc, char *argv[]) {
+    if (argc == 1) {
+        interactive_mode();     // No arguments -> interactive. this is when argc = 1 because the only thing you are running is ./wish which is the first argument (the program name)
+    } else if (argc == 2) {
+        batch_mode(argv[1]);    // One argument when running ./wish batch.txt enters batch mode
+    } else {
+        print_error();          // Too many arguments
+        exit(1);
+    }
+
+    return 0;
+}
