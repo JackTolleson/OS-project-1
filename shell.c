@@ -78,6 +78,13 @@ void process_line(char *line) {
 		    command_str++;
 		}
 
+		// trims whitespace at end of command line inputs
+        char *end = command_str + strlen(command_str) - 1;
+        while (end > command_str && isspace(*end)) {
+            *end = '\0';
+            end--;
+        }
+
 		// this checks for empty commands after trimming (indicates a syntax error)
         if (*command_str == '\0') {
             print_error();
