@@ -50,9 +50,10 @@ void execute_command(char **args) {
 		// execv(args[0], args) runs the program args[0] (e.g., "ls") with the arguments in args;
 		// args[0] is conventionally the program name itself, so argv[0] = "ls", argv[1] = "-l", etc.
 	        // I had used the execvp instead of execv, just realized my mistake
-		if (execv(args[0], args) == -1) {
-            print_error();
-        }
+		if (execv(resolved_path, args) == -1) {
+		    print_error();
+		    exit(1);
+		}
         exit(1); // Exit child if exec fails
     } else {
         // Parent waits for child
