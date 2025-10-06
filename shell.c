@@ -1,3 +1,4 @@
+//use gcc -Wall -Wextra -o wish shell.c to compile then ./wish to get into the shell
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -40,7 +41,7 @@ void init_default_path() {
 
 // all of the 3 functions (Jack's Section)
 int handle_builtin(char **args) {
-    // DEBUG: entering built-in handler
+    
 
 
     if (args[0] == NULL) return 0;
