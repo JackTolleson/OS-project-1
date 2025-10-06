@@ -12,11 +12,14 @@
 char **path_dirs = NULL; 
 void free_path_dirs();    
 void init_default_path(); 
+
 //functions
 int handle_builtin(char **args);
 
 // function declarations
 char* find_executable(char *, char **);
+void execute_command(char **args, char *outputFile);
+void print_error();
 
 
 //helper functions for path
@@ -94,18 +97,37 @@ int parse_line(char *line, char **args) {
 }
 
 // Execute a command
-void execute_command(char **args) {
+void execute_command(char **args, char *outputFile) {
     if (args[0] == NULL) {
 		return; // Empty command
 	}
+
 	//args[0] is the first pointer in the array that will point to a single command/arguments
-	
-	// see if command path exists 
-    char *resolved_path = find_executable(args[0], path_dirs);
+	char *resolved_path = find_executable(args[0], path_dirs);
     if (resolved_path == NULL) {
         print_error();
         return;
     }
+
+    if (outputFile != NULL) {
+        FILE *fp = fopen(outputFile, "w");
+        if (fp == NULL) {
+            print_error();
+            free(resolved_path);
+            return;
+        }
+        int fd = fileno(fp);
+        dup2(fd, STDOUT_FILENO); // redirect stdout
+        dup2(fd, STDERR_FILENO); // redirect stderr
+        close(fd);
+    }
+
+	// see if command path exists 
+    // char *resolved_path = find_executable(args[0], path_dirs);
+    // if (resolved_path == NULL) {
+    //     print_error();
+    //     return;
+    // }
 	
 	// execv(args[0], args) runs the program args[0] (e.g., "ls") with the arguments in args;
 	// args[0] is conventionally the program name itself, so argv[0] = "ls", argv[1] = "-l", etc.
@@ -160,6 +182,21 @@ void process_line(char *line) {
 		    print_error();
 		    return;
 		}
+
+        //Will check for the redirection operation
+        char *outputFile = NULL;
+        for(int i =0; args[i] != NULL; i++){
+            if(strcmp(args[i], ">") == 0){
+                if(args[i+1] == NULL || args[i+2] != NULL){
+                    print_error();
+                    return;
+                }
+                outputFile = args[i+1];
+                args[i] = NULL; // will terminate args before '>'
+                break;
+            }
+        }
+
         if (handle_builtin(args)) {
             command_str = strtok_r(NULL, "&", &saveptr);
             continue;
@@ -169,7 +206,7 @@ void process_line(char *line) {
         if (pid < 0) {
             print_error(); // Fork failed
         } else if (pid == 0) {
-            execute_command(args); // runs command in child process
+            execute_command(args, outputFile); // runs command in child process
             _exit(0);
         } else {
 			 // store child pid for later
