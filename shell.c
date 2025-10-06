@@ -45,8 +45,6 @@ void init_default_path() {
 // all of the 3 functions (Jack's Section)
 int handle_builtin(char **args) {
     
-
-
     if (args[0] == NULL) return 0;
 
     // exit
@@ -109,29 +107,22 @@ void execute_command(char **args, char *outputFile) {
         return;
     }
 
+    //Used to handle the output redirection
     if (outputFile != NULL) {
         FILE *fp = fopen(outputFile, "w");
-        if (fp == NULL) {
+        if (fp == NULL) { // only runs when file cannot be opened/created
             print_error();
             free(resolved_path);
             return;
         }
-        int fd = fileno(fp);
+
+        int fd = fileno(fp); 
         dup2(fd, STDOUT_FILENO); // redirect stdout
         dup2(fd, STDERR_FILENO); // redirect stderr
         close(fd);
     }
 
-	// see if command path exists 
-    // char *resolved_path = find_executable(args[0], path_dirs);
-    // if (resolved_path == NULL) {
-    //     print_error();
-    //     return;
-    // }
 	
-	// execv(args[0], args) runs the program args[0] (e.g., "ls") with the arguments in args;
-	// args[0] is conventionally the program name itself, so argv[0] = "ls", argv[1] = "-l", etc.
-		// I had used the execvp instead of execv, just realized my mistake
 	if (execv(resolved_path, args) == -1) {
 		print_error();
 	}
@@ -206,7 +197,7 @@ void process_line(char *line) {
         if (pid < 0) {
             print_error(); // Fork failed
         } else if (pid == 0) {
-            execute_command(args, outputFile); // runs command in child process
+            execute_command(args, outputFile); // creates child process to execute command
             _exit(0);
         } else {
 			 // store child pid for later
