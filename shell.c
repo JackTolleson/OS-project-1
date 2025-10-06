@@ -7,11 +7,72 @@
 
 #define MAX_ARGS 64
 
-// Path directories (use as global variable for now, later managed by built-in `path` -----> JACK)
-char *path_dirs[] = {"/bin", NULL};
+// added path variables
+char **path_dirs = NULL; 
+void free_path_dirs();    
+void init_default_path(); 
+//functions
+int handle_builtin(char **args);
 
 // function declarations
 char* find_executable(char *, char **);
+
+
+//helper functions for path
+void free_path_dirs() {
+    if (path_dirs == NULL) return;
+    for (int i = 0; path_dirs[i] != NULL; i++) {
+        if (path_dirs[i] != NULL) {
+            free(path_dirs[i]);
+            path_dirs[i] = NULL;
+        }
+    }
+    free(path_dirs);
+    path_dirs = NULL;
+}
+
+
+void init_default_path() {
+    path_dirs = malloc(sizeof(char*) * 2);
+    path_dirs[0] = strdup("/bin");
+    path_dirs[1] = NULL;
+}
+
+// all of the 3 functions (Jack's Section)
+int handle_builtin(char **args) {
+    // DEBUG: entering built-in handler
+
+
+    if (args[0] == NULL) return 0;
+
+    // exit
+    if (strcmp(args[0], "exit") == 0) {
+        if (args[1] != NULL) { print_error(); return 1; }
+        exit(0);
+    }
+
+    // cd
+    if (strcmp(args[0], "cd") == 0) {
+        if (args[1] == NULL || args[2] != NULL) { print_error(); return 1; }
+        if (chdir(args[1]) != 0) print_error();
+        return 1;
+    }
+
+    // path
+    if (strcmp(args[0], "path") == 0) {
+        free_path_dirs();
+        int count = 0;
+        for (int i = 1; args[i] != NULL; i++) count++;
+        path_dirs = malloc(sizeof(char*) * (count + 1));
+        for (int i = 0; i < count; i++)
+            path_dirs[i] = strdup(args[1 + i]);
+        path_dirs[count] = NULL;
+        return 1;
+    }
+
+    return 0;
+}
+
 
 // Print an error message
 void print_error() {
@@ -98,13 +159,17 @@ void process_line(char *line) {
 		    print_error();
 		    return;
 		}
+        if (handle_builtin(args)) {
+            command_str = strtok_r(NULL, "&", &saveptr);
+            continue;
+        }
 
         pid_t pid = fork();
         if (pid < 0) {
             print_error(); // Fork failed
         } else if (pid == 0) {
             execute_command(args); // runs command in child process
-            exit(0);
+            _exit(0);
         } else {
 			 // store child pid for later
             pids[pid_count++] = pid;
@@ -173,6 +238,9 @@ void batch_mode(char *filename) {
 
 // Main function
 int main(int argc, char *argv[]) {
+    //initate path 
+    init_default_path();
+
     if (argc == 1) {
         interactive_mode();     // No arguments -> interactive. this is when argc = 1 because the only thing you are running is ./wish which is the first argument (the program name)
     } else if (argc == 2) {
@@ -181,7 +249,8 @@ int main(int argc, char *argv[]) {
         print_error();          // Too many arguments
         exit(1);
     }
-
+    //cleanup
+    free_path_dirs();
     return 0;
 }
 
