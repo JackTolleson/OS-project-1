@@ -1,4 +1,7 @@
-//use gcc -Wall -Wextra -o wish shell.c to compile then ./wish to get into the shell
+// Contributors: Eliejah Walker, Julian Trujillo, Noah Beaty, Jack Tolleson
+// Use "gcc -Wall -Wextra -o wish shell.c" to compile, then ./wish to get into the shell
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
